@@ -1,0 +1,173 @@
+{
+  "pluginName": "JSON工坊",
+  "version": "0.1.0",
+  "description": "JSON工坊 FunJSON：离线 JSON 五视图工作台，支持编辑/树形/嵌套表格/栏列/差异对比、JSONPath 查询、智能修复与多语言类型生成",
+  "author": "farfarfun",
+  "main": "dist/index.html",
+  "preload": "preload.js",
+  "logo": "logo.png",
+  "pluginSetting": {
+    "height": 720
+  },
+  "platform": [
+    "darwin",
+    "win32",
+    "linux"
+  ],
+  "features": [
+    {
+      "code": "funjson",
+      "explain": "打开 JSON工坊五视图工作台",
+      "cmds": [
+        "JSON工坊",
+        "FunJSON",
+        "funjson",
+        "json",
+        "JSON",
+        "JSON格式化",
+        "JSON对比",
+        "JSON表格",
+        "JSONPath",
+        "json5"
+      ]
+    },
+    {
+      "code": "json-regex",
+      "explain": "识别并格式化剪贴板或输入的 JSON 数据",
+      "cmds": [
+        {
+          "type": "regex",
+          "label": "JSON 格式化",
+          "match": "/^\\s*(\\{[\\s\\S]*\\}|\\[[\\s\\S]*\\])\\s*$/",
+          "minLength": 2
+        }
+      ]
+    },
+    {
+      "code": "json-files",
+      "explain": "用 JSON工坊打开并编辑 JSON 文件",
+      "cmds": [
+        {
+          "type": "files",
+          "label": "用 JSON工坊打开",
+          "fileType": "file",
+          "match": "/\\.(json|json5|jsonc|jsonl|ndjson)$/i",
+          "minLength": 1,
+          "maxLength": 10
+        }
+      ]
+    },
+    {
+      "code": "json-over",
+      "explain": "将选中文本载入 JSON工坊解析与格式化",
+      "cmds": [
+        {
+          "type": "over",
+          "label": "用 JSON工坊解析",
+          "minLength": 2,
+          "maxLength": 200000
+        }
+      ]
+    }
+  ],
+  "tools": {
+    "format_json": {
+      "description": "离线校验、格式化、压缩、按键排序或自动修复 JSON / JSON5 文本；不保存或上传数据。",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "待处理的 JSON 或 JSON5 文本"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "format",
+              "minify"
+            ],
+            "description": "format 美化（默认）或 minify 压缩"
+          },
+          "indent": {
+            "type": "number",
+            "description": "缩进空格数（1-8，默认 2）"
+          },
+          "repair": {
+            "type": "boolean",
+            "description": "语法有误时是否尝试自动修复（默认 true）"
+          },
+          "sortKeys": {
+            "type": "string",
+            "enum": [
+              "none",
+              "asc",
+              "desc"
+            ],
+            "description": "是否递归排序对象键（默认 none）"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      }
+    },
+    "query_jsonpath": {
+      "description": "使用 RFC 9535 JSONPath 表达式离线查询 JSON / JSON5 数据，返回匹配数组及数量。",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "JSON 或 JSON5 文本"
+          },
+          "expression": {
+            "type": "string",
+            "description": "JSONPath 表达式，如 $.users[*].name"
+          }
+        },
+        "required": [
+          "input",
+          "expression"
+        ]
+      }
+    },
+    "json_to_types": {
+      "description": "根据 JSON 样本离线生成 TypeScript / Go / Java / Rust / Python / Kotlin / Swift / C# / JSON Schema 类型定义。",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "JSON 样本"
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "typescript",
+              "go",
+              "java",
+              "rust",
+              "python",
+              "kotlin",
+              "swift",
+              "csharp",
+              "jsonschema"
+            ],
+            "description": "目标语言"
+          },
+          "rootName": {
+            "type": "string",
+            "description": "根类型名称，默认 Root"
+          }
+        },
+        "required": [
+          "input",
+          "language"
+        ]
+      }
+    }
+  }
+}

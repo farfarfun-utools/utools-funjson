@@ -1,0 +1,75 @@
+{
+  "name": "@farfarfun/utools-funjson",
+  "funbuild": { "build": "sh build.sh" },
+  "version": "0.1.0",
+  "description": "JSON工坊 FunJSON：离线 JSON 五视图工作台，支持编辑/树形/嵌套表格/栏列/差异对比、JSONPath 查询、智能修复与多语言类型生成",
+  "license": "MIT",
+  "homepage": "https://farfarfun.github.io/packages/utools-funjson/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/farfarfun-utools/utools-funjson.git"
+  },
+  "bugs": {
+    "url": "https://github.com/farfarfun-utools/utools-funjson/issues"
+  },
+  "keywords": [
+    "utools",
+    "utools-plugin",
+    "json",
+    "json5",
+    "jsonc",
+    "ndjson",
+    "jsonpath",
+    "json-table",
+    "json-diff",
+    "typegen",
+    "vue3",
+    "typescript",
+    "farfarfun"
+  ],
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.11.2",
+  "engines": {
+    "node": ">=22.22.2"
+  },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "lint": "eslint .",
+    "typecheck": "vue-tsc --noEmit",
+    "test": "vitest run",
+    "screenshots": "pnpm build && node scripts/screenshots.mjs"
+  },
+  "dependencies": {
+    "@codemirror/commands": "^6.8.1",
+    "@codemirror/lang-json": "^6.0.1",
+    "@codemirror/language": "^6.11.0",
+    "@codemirror/search": "^6.5.10",
+    "@codemirror/state": "^6.5.2",
+    "@codemirror/view": "^6.36.5",
+    "@lezer/highlight": "^1.2.1",
+    "diff": "^7.0.0",
+    "json5": "^2.2.3",
+    "jsonpath-rfc9535": "^1.3.0",
+    "jsonrepair": "^3.12.0",
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/diff": "^7.0.2",
+    "@types/node": "^22.10.2",
+    "@vitejs/plugin-vue": "^6.0.10",
+    "@vue/test-utils": "^2.5.1",
+    "eslint": "^9.39.5",
+    "eslint-plugin-vue": "^10.11.1",
+    "globals": "^17.13.0",
+    "jsdom": "^30.1.2",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.71.1",
+    "vite": "^7.3.7",
+    "vitest": "^4.1.12",
+    "vue-tsc": "^3.3.12"
+  }
+}

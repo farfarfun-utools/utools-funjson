@@ -1,0 +1,11 @@
+node_modules/
+dist/
+utools/dist/
+coverage/
+release/
+*.upxs
+*.tsbuildinfo
+.DS_Store
+.screenshot-tools/
+identity.local.json
+identity.private*.json
