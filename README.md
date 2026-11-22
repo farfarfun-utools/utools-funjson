@@ -25,7 +25,7 @@
 
 | 入口关键词 / 触发方式 | 行为 |
 | --- | --- |
-| `JSON工坊` / `FunJSON` / `funjson` / `json` / `JSON` / `JSON格式化` / `JSON对比` / `JSON表格` / `JSONPath` / `json5` | 打开工作台 |
+| `JSON工坊` / `FunJSON` / `json` / `JSON格式化` / `JSONPath` | 打开工作台 |
 | 剪贴板或输入框匹配 `{...}` / `[...]`（`JSON 格式化`） | 新建标签载入并自动格式化 JSON |
 | 选中 `.json` / `.json5` / `.jsonc` / `.jsonl` / `.ndjson` 文件 | 自动识别格式并在多标签中打开 |
 | 选中任意文本使用「用 JSON工坊解析」 | 自动检测 JSON 家族格式并载入工作台 |

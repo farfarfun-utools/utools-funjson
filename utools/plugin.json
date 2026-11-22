@@ -21,14 +21,9 @@
       "cmds": [
         "JSON工坊",
         "FunJSON",
-        "funjson",
         "json",
-        "JSON",
         "JSON格式化",
-        "JSON对比",
-        "JSON表格",
-        "JSONPath",
-        "json5"
+        "JSONPath"
       ]
     },
     {
