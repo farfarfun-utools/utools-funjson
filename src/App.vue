@@ -72,6 +72,18 @@ const VIEW_TABS: Array<{ id: ViewMode; icon: IconName }> = [
   { id: 'diff', icon: 'diff' },
 ]
 
+const NAV_TOOLS: Array<{
+  id: ToolId
+  icon: IconName
+  key: string
+  tone: 'violet' | 'cerulean' | 'blue' | 'amber'
+}> = [
+  { id: 'repair', icon: 'sparkles', key: 'tool.repair', tone: 'violet' },
+  { id: 'types', icon: 'code', key: 'tool.types', tone: 'cerulean' },
+  { id: 'jsonpath', icon: 'filter', key: 'tool.jsonpath', tone: 'blue' },
+  { id: 'naming', icon: 'case-sensitive', key: 'tool.naming', tone: 'amber' },
+]
+
 const prefersDark = ref(
   typeof window !== 'undefined' && typeof window.matchMedia === 'function'
     ? window.matchMedia('(prefers-color-scheme: dark)').matches
@@ -455,13 +467,14 @@ function toggleLocale() {
   workspace.value.settings.locale = workspace.value.settings.locale === 'zh-CN' ? 'en' : 'zh-CN'
 }
 
-function switchWorkspace(mode: 'workbench' | 'toolbox') {
+function selectWorkbench() {
   mobileNavOpen.value = false
-  if (mode === 'workbench') {
-    workspace.value.activeTool = null
-  } else {
-    workspace.value.activeTool = workspace.value.activeTool ?? 'types'
-  }
+  workspace.value.activeTool = null
+}
+
+function selectTool(id: ToolId) {
+  mobileNavOpen.value = false
+  workspace.value.activeTool = id
 }
 
 function setViewMode(mode: ViewMode) {
@@ -640,7 +653,7 @@ onBeforeUnmount(() => {
           :class="{ active: !inToolbox }"
           data-testid="ws-workbench-btn"
           :title="locale === 'en' ? 'Workbench' : '工作台'"
-          @click="switchWorkspace('workbench')"
+          @click="selectWorkbench"
         >
           <span class="nav-icon">
             <AppIcon name="braces" :size="15" />
@@ -651,21 +664,29 @@ onBeforeUnmount(() => {
           <span v-show="!sidebarCollapsed && !inToolbox" class="nav-active-dot" />
         </button>
 
+        <div class="nav-divider" />
+
+        <div v-show="!sidebarCollapsed" class="nav-section-label">
+          {{ locale === 'en' ? 'TOOLS' : '工具' }}
+        </div>
+
         <button
+          v-for="item in NAV_TOOLS"
+          :key="item.id"
           type="button"
           class="nav-link"
-          :class="{ active: inToolbox }"
-          data-testid="ws-toolbox-btn"
-          :title="locale === 'en' ? 'Toolbox' : '工具箱'"
-          @click="switchWorkspace('toolbox')"
+          :class="{ active: workspace.activeTool === item.id }"
+          :data-testid="`tool-btn-${item.id}`"
+          :title="t(locale, item.key)"
+          @click="selectTool(item.id)"
         >
-          <span class="nav-icon">
-            <AppIcon name="blocks" :size="15" />
+          <span class="nav-icon" :class="`tone-${item.tone}`">
+            <AppIcon :name="item.icon" :size="14" />
           </span>
           <span v-show="!sidebarCollapsed" class="nav-label">
-            {{ locale === 'en' ? 'Toolbox' : '工具箱' }}
+            {{ t(locale, item.key) }}
           </span>
-          <span v-show="!sidebarCollapsed && inToolbox" class="nav-active-dot" />
+          <span v-show="!sidebarCollapsed && workspace.activeTool === item.id" class="nav-active-dot" />
         </button>
       </div>
 
@@ -933,7 +954,6 @@ onBeforeUnmount(() => {
           :current-format="activeTab.format"
           :indent="activeTab.indent"
           :settings="workspace.settings"
-          @update:active-tool="workspace.activeTool = $event"
           @apply-to-tab="handleApplyFromToolbox"
           @open-new-tab="openNewTab($event)"
           @copy="handleCopy"
@@ -1223,12 +1243,24 @@ onBeforeUnmount(() => {
 }
 
 .nav-section-label {
-  padding: 2px 8px 6px;
+  padding: 2px 8px 4px;
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-muted);
+}
+
+.nav-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 6px 6px;
+  flex-shrink: 0;
+}
+
+.workbench-nav.collapsed .nav-divider {
+  width: 24px;
+  margin: 5px auto;
 }
 
 .nav-link {
@@ -1276,7 +1308,27 @@ onBeforeUnmount(() => {
   transition: background-color 130ms ease, color 130ms ease;
 }
 
-.nav-link.active .nav-icon {
+.nav-icon.tone-cerulean {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.nav-icon.tone-violet {
+  background: rgba(124, 58, 237, 0.12);
+  color: var(--type-arr);
+}
+
+.nav-icon.tone-blue {
+  background: rgba(37, 99, 235, 0.12);
+  color: var(--type-num);
+}
+
+.nav-icon.tone-amber {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.nav-link.active .nav-icon:not([class*='tone-']) {
   background: var(--accent-soft);
   color: var(--accent);
 }

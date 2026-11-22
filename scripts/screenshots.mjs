@@ -130,9 +130,7 @@ try {
   await raf(2)
   await capture('table')
 
-  // 4. Toolbox view (TypeScript type generator)
-  await click('[data-testid="ws-toolbox-btn"]')
-  await session.waitForExpression('document.querySelector("[data-testid=toolbox-view]") !== null')
+  // 4. Direct sidebar tool view (TypeScript type generator)
   await click('[data-testid="tool-btn-types"]')
   await session.waitForExpression('document.querySelector("[data-testid=tool-panel-types]") !== null')
   await capture('toolbox')

@@ -82,14 +82,16 @@ describe('App.vue workbench integration', () => {
     wrapper.unmount()
   })
 
-  it('switches to ToolboxView and executes all 4 JSON tools (repair, types, jsonpath, naming)', async () => {
+  it('expands all 4 JSON tools directly in the workspace sidebar and executes them (repair, types, jsonpath, naming)', async () => {
     const wrapper = mount(App)
 
-    await wrapper.get('[data-testid="ws-toolbox-btn"]').trigger('click')
-    expect(wrapper.find('[data-testid="toolbox-view"]').exists()).toBe(true)
+    // All 4 tools are directly accessible in the primary sidebar without a nested toolbox layer
+    expect(wrapper.find('[data-testid="ws-toolbox-btn"]').exists()).toBe(false)
 
     // Types tool
     await wrapper.get('[data-testid="tool-btn-types"]').trigger('click')
+    expect(wrapper.find('[data-testid="toolbox-view"]').exists()).toBe(true)
+    expect(wrapper.find('.tool-rail').exists()).toBe(false)
     expect(wrapper.find('[data-testid="tool-panel-types"]').exists()).toBe(true)
     const tsOut = (wrapper.get('[data-testid="types-output"]').element as HTMLTextAreaElement).value
     expect(tsOut).toContain('export interface UserPayload')
@@ -113,10 +115,10 @@ describe('App.vue workbench integration', () => {
     expect(namingOut).toContain('"firstName"')
     expect(namingOut).toContain('"keep_raw"')
 
-    // Toolbox Overview Grid (4 cards)
-    await wrapper.get('[data-testid="tool-overview-btn"]').trigger('click')
-    expect(wrapper.find('[data-testid="tool-overview-grid"]').exists()).toBe(true)
-    expect(wrapper.findAll('[data-testid="tool-overview-grid"] .tool-card')).toHaveLength(4)
+    // Switch back to Workbench directly
+    await wrapper.get('[data-testid="ws-workbench-btn"]').trigger('click')
+    expect(wrapper.find('[data-testid="toolbox-view"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="code-editor-host"]').exists()).toBe(true)
 
     wrapper.unmount()
   })
