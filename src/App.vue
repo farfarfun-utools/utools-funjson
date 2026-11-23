@@ -18,6 +18,7 @@ import {
   escapeJsonString,
   formatContent,
   getFormatMeta,
+  isEscapedJsonContent,
   minifyContent,
   parseJsonError,
   repairJsonLocal,
@@ -52,7 +53,6 @@ const jsonPathOpen = ref(false)
 const dragOver = ref(false)
 const cursorPos = ref({ line: 1, col: 1 })
 const sortOrder = ref<'asc' | 'desc'>('asc')
-const escapedState = ref(false)
 
 const renamingTabId = ref<string | null>(null)
 const renameDraft = ref('')
@@ -114,10 +114,11 @@ const locale = computed(() => workspace.value.settings.locale)
 const inToolbox = computed(() => workspace.value.activeTool !== null)
 const currentTool = computed<ToolId>(() => workspace.value.activeTool ?? 'types')
 const isJsonLike = computed(() => getFormatMeta(activeTab.value.format).isJsonLike)
+const escapedState = computed(() => isEscapedJsonContent(activeTab.value.content))
 
 const jsonValidation = computed(() => {
   if (!isJsonLike.value) return null
-  return parseJsonError(activeTab.value.content)
+  return parseJsonError(activeTab.value.content, activeTab.value.format)
 })
 
 const activeStats = computed(() => {
@@ -276,9 +277,11 @@ function handleCommandTrigger() {
 // Toolbar actions
 function handleFormat() {
   try {
-    snapshotActiveTab(t(locale.value, 'action.format'))
     const formatted = formatContent(activeTab.value.content, activeTab.value.format, activeTab.value.indent)
-    setActiveContent(formatted)
+    if (formatted !== activeTab.value.content) {
+      snapshotActiveTab(t(locale.value, 'action.format'))
+      setActiveContent(formatted)
+    }
     notify(locale.value === 'en' ? 'Formatted' : '已格式化', 'success')
   } catch (err) {
     notify(err instanceof Error ? err.message : 'Format failed', 'error')
@@ -287,9 +290,11 @@ function handleFormat() {
 
 function handleMinify() {
   try {
-    snapshotActiveTab(t(locale.value, 'action.minify'))
     const minified = minifyContent(activeTab.value.content, activeTab.value.format)
-    setActiveContent(minified)
+    if (minified !== activeTab.value.content) {
+      snapshotActiveTab(t(locale.value, 'action.minify'))
+      setActiveContent(minified)
+    }
     notify(locale.value === 'en' ? 'Minified' : '已压缩', 'success')
   } catch (err) {
     notify(err instanceof Error ? err.message : 'Minify failed', 'error')
@@ -298,17 +303,22 @@ function handleMinify() {
 
 async function handleRepair() {
   try {
-    snapshotActiveTab(t(locale.value, 'tool.repair'))
     if (workspace.value.settings.ai.provider === 'local') {
       const res = repairJsonLocal(activeTab.value.content, activeTab.value.indent)
-      setActiveContent(res.output)
+      if (res.output !== activeTab.value.content) {
+        snapshotActiveTab(t(locale.value, 'tool.repair'))
+        setActiveContent(res.output)
+      }
       notify(locale.value === 'en' ? 'Repaired JSON locally' : '已完成本地 JSON 修复', 'success')
     } else {
       const res = await repairJsonWithAi(activeTab.value.content, {
         ...workspace.value.settings.ai,
         indent: activeTab.value.indent,
       })
-      setActiveContent(res.output)
+      if (res.output !== activeTab.value.content) {
+        snapshotActiveTab(t(locale.value, 'tool.repair'))
+        setActiveContent(res.output)
+      }
       notify(
         locale.value === 'en' ? `Repaired via ${res.source}` : `已修复（引擎：${res.source}）`,
         'success',
@@ -321,9 +331,11 @@ async function handleRepair() {
 
 function handleSortKeys() {
   try {
-    snapshotActiveTab(sortOrder.value === 'asc' ? 'Sort A→Z' : 'Sort Z→A')
     const next = sortJsonKeys(activeTab.value.content, sortOrder.value, activeTab.value.indent)
-    setActiveContent(next)
+    if (next !== activeTab.value.content) {
+      snapshotActiveTab(sortOrder.value === 'asc' ? 'Sort A→Z' : 'Sort Z→A')
+      setActiveContent(next)
+    }
     notify(
       sortOrder.value === 'asc'
         ? t(locale.value, 'action.sortAsc')
@@ -338,14 +350,16 @@ function handleSortKeys() {
 
 function handleToggleEscape() {
   try {
-    snapshotActiveTab(escapedState.value ? 'Unescape' : 'Escape')
-    const next = escapedState.value
+    const wasEscaped = escapedState.value
+    const next = wasEscaped
       ? unescapeJsonString(activeTab.value.content)
       : escapeJsonString(activeTab.value.content)
-    setActiveContent(next)
-    escapedState.value = !escapedState.value
+    if (next !== activeTab.value.content) {
+      snapshotActiveTab(wasEscaped ? 'Unescape' : 'Escape')
+      setActiveContent(next)
+    }
     notify(
-      escapedState.value ? t(locale.value, 'action.escape') : t(locale.value, 'action.unescape'),
+      wasEscaped ? t(locale.value, 'action.unescape') : t(locale.value, 'action.escape'),
       'success',
     )
   } catch (err) {
@@ -549,12 +563,38 @@ async function handleDrop(event: DragEvent) {
 }
 
 function handleKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') {
+    if (showSettings.value) {
+      showSettings.value = false
+      return
+    }
+    if (showHistory.value) {
+      showHistory.value = false
+      return
+    }
+    if (showSampleMenu.value) {
+      showSampleMenu.value = false
+      return
+    }
+    if (mobileNavOpen.value) {
+      mobileNavOpen.value = false
+      return
+    }
+    if (jsonPathOpen.value) {
+      jsonPathOpen.value = false
+      return
+    }
+  }
+
   const mod = event.metaKey || event.ctrlKey
   if (!mod) return
   const key = event.key.toLowerCase()
   if (event.shiftKey && key === 'f') {
     event.preventDefault()
     if (!inToolbox.value) handleFormat()
+  } else if (event.shiftKey && key === 'm') {
+    event.preventDefault()
+    if (!inToolbox.value) handleMinify()
   } else if (key === 'k') {
     event.preventDefault()
     handleCommandTrigger()
@@ -649,6 +689,7 @@ onBeforeUnmount(() => {
           type="button"
           class="nav-link"
           :class="{ active: !inToolbox && workspace.viewMode === tab.id }"
+          :aria-current="!inToolbox && workspace.viewMode === tab.id ? 'page' : undefined"
           :data-testid="`view-${tab.id}`"
           :title="t(locale, `nav.${tab.id}`)"
           @click="setViewMode(tab.id)"
@@ -674,6 +715,7 @@ onBeforeUnmount(() => {
           type="button"
           class="nav-link"
           :class="{ active: workspace.activeTool === item.id }"
+          :aria-current="workspace.activeTool === item.id ? 'page' : undefined"
           :data-testid="`tool-btn-${item.id}`"
           :title="t(locale, item.key)"
           @click="selectTool(item.id)"
@@ -752,9 +794,18 @@ onBeforeUnmount(() => {
             class="tab-item"
             :class="{ active: !inToolbox && tab.id === activeTab.id }"
             role="tab"
+            tabindex="0"
             :aria-selected="!inToolbox && tab.id === activeTab.id"
             :data-testid="`tab-${tab.id}`"
             @click="
+              workspace.activeTabId = tab.id;
+              workspace.activeTool = null;
+            "
+            @keydown.enter.self="
+              workspace.activeTabId = tab.id;
+              workspace.activeTool = null;
+            "
+            @keydown.space.prevent.self="
               workspace.activeTabId = tab.id;
               workspace.activeTool = null;
             "
@@ -957,6 +1008,7 @@ onBeforeUnmount(() => {
           :json-path-open="jsonPathOpen"
           @update:model-value="setActiveContent"
           @update:json-path-open="jsonPathOpen = $event"
+          @snapshot="snapshotActiveTab($event)"
           @request-repair="handleRepair"
           @open-new-tab="openNewTab($event)"
           @copy="handleCopy"
@@ -969,7 +1021,10 @@ onBeforeUnmount(() => {
           :content="activeTab.content"
           :indent="activeTab.indent"
           :settings="workspace.settings"
-          @update:content="setActiveContent"
+          @update:content="
+            snapshotActiveTab(locale === 'en' ? 'Tree Edit' : '树形编辑');
+            setActiveContent($event);
+          "
           @request-repair="handleRepair"
           @copy="handleCopy"
         />
@@ -1002,6 +1057,7 @@ onBeforeUnmount(() => {
           :current-tab-content="activeTab.content"
           @update:left="setActiveContent"
           @update:right="setActiveDiffRight"
+          @copy="handleCopy"
           @notify="notify($event.message, $event.kind)"
         />
       </main>
@@ -1012,7 +1068,13 @@ onBeforeUnmount(() => {
           <template v-if="jsonValidation">
             <span v-if="jsonValidation.valid" class="status-valid">
               <AppIcon name="check" :size="12" />
-              <span>{{ locale === 'en' ? 'Valid JSON' : 'JSON 合法' }}</span>
+              <span>
+                {{
+                  locale === 'en'
+                    ? `Valid ${getFormatMeta(activeTab.format).shortLabel}`
+                    : `${getFormatMeta(activeTab.format).shortLabel} 合法`
+                }}
+              </span>
             </span>
             <button
               v-else
@@ -1054,8 +1116,10 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="status-group">
-          <span class="status-item tabular hide-xs">Ln {{ cursorPos.line }}, Col {{ cursorPos.col }}</span>
-          <span class="status-sep hide-xs">·</span>
+          <template v-if="!inToolbox && workspace.viewMode === 'code'">
+            <span class="status-item tabular hide-xs">Ln {{ cursorPos.line }}, Col {{ cursorPos.col }}</span>
+            <span class="status-sep hide-xs">·</span>
+          </template>
           <span class="status-item tabular">
             {{ activeStats.lines }} {{ locale === 'en' ? 'lines' : '行' }} · {{ activeStats.size }}
           </span>
@@ -1409,7 +1473,7 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 5px;
   height: 32px;
-  max-width: 170px;
+  max-width: 210px;
   padding: 0 8px 0 10px;
   border-radius: 7px 7px 0 0;
   border: 1px solid transparent;

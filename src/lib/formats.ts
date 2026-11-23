@@ -277,7 +277,10 @@ function offsetToLineColumn(input: string, offset: number): { line: number; colu
   return { line, column }
 }
 
-export function parseJsonError(input: string): {
+export function parseJsonError(
+  input: string,
+  format: DataFormat = 'json',
+): {
   valid: boolean
   message?: string
   line?: number
@@ -286,8 +289,26 @@ export function parseJsonError(input: string): {
   if (!input.trim()) {
     return { valid: false, message: 'Empty JSON input', line: 1, column: 1 }
   }
+
+  if (format === 'json5') {
+    try {
+      JSON5.parse(input)
+      return { valid: true }
+    } catch (err5: unknown) {
+      const message = err5 instanceof Error ? err5.message : String(err5)
+      const maybe = err5 as { lineNumber?: number; columnNumber?: number }
+      return {
+        valid: false,
+        message,
+        line: typeof maybe?.lineNumber === 'number' ? maybe.lineNumber : 1,
+        column: typeof maybe?.columnNumber === 'number' ? maybe.columnNumber : 1,
+      }
+    }
+  }
+
+  const target = format === 'jsonc' ? stripJsonComments(input) : input
   try {
-    JSON.parse(input)
+    JSON.parse(target)
     return { valid: true }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
@@ -302,11 +323,11 @@ export function parseJsonError(input: string): {
     }
     const posMatch = /position\s+(\d+)/i.exec(message)
     if (posMatch) {
-      const { line, column } = offsetToLineColumn(input, Number(posMatch[1]))
+      const { line, column } = offsetToLineColumn(target, Number(posMatch[1]))
       return { valid: false, message, line, column }
     }
     try {
-      JSON5.parse(input)
+      JSON5.parse(target)
     } catch (err5: unknown) {
       const maybe = err5 as { lineNumber?: number; columnNumber?: number }
       if (typeof maybe?.lineNumber === 'number') {
@@ -440,6 +461,40 @@ export function escapeJsonString(input: string): string {
   return JSON.stringify(input).slice(1, -1)
 }
 
+function wrapRawEscapedContent(input: string): string {
+  let out = '"'
+  let escaped = false
+  for (let i = 0; i < input.length; i += 1) {
+    const ch = input[i]
+    if (escaped) {
+      out += ch
+      escaped = false
+      continue
+    }
+    if (ch === '\\') {
+      out += ch
+      escaped = true
+      continue
+    }
+    if (ch === '"') {
+      out += '\\"'
+    } else if (ch === '\n') {
+      out += '\\n'
+    } else if (ch === '\r') {
+      out += '\\r'
+    } else if (ch === '\t') {
+      out += '\\t'
+    } else {
+      out += ch
+    }
+  }
+  if (escaped) {
+    out += '\\'
+  }
+  out += '"'
+  return out
+}
+
 export function unescapeJsonString(input: string): string {
   const trimmed = input.trim()
   if (trimmed.length >= 2 && trimmed.startsWith('"') && trimmed.endsWith('"')) {
@@ -450,8 +505,22 @@ export function unescapeJsonString(input: string): string {
       // fall through to unquoted unescape
     }
   }
-  const wrapped = `"${input.replace(/(^|[^\\])"/g, '$1\\"')}"`
-  return JSON.parse(wrapped) as string
+  return JSON.parse(wrapRawEscapedContent(input)) as string
+}
+
+export function isEscapedJsonContent(input: string): boolean {
+  const trimmed = input.trim()
+  if (!trimmed) return false
+  if (trimmed.startsWith('"') && trimmed.endsWith('"') && trimmed.length >= 2) {
+    try {
+      const parsed = JSON.parse(trimmed)
+      return typeof parsed === 'string'
+    } catch {
+      return false
+    }
+  }
+  // Unquoted escaped JSON body, e.g. {\"a\": 1} or [\"x\"]
+  return /\\["nrt\\/]/.test(trimmed) && !/^[[{]\s*"/.test(trimmed)
 }
 
 export function repairJsonLocal(

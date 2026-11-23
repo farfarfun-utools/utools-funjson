@@ -78,6 +78,12 @@ describe('formats.ts', () => {
     expect(parseJsonLike("{a: 'ok',}")).toEqual({ a: 'ok' })
 
     expect(parseJsonError('{"ok": true}')).toEqual({ valid: true })
+    expect(parseJsonError('// comment\n{"ok": true}', 'jsonc')).toEqual({ valid: true })
+    expect(parseJsonError("{ ok: true, tags: ['a',], }", 'json5')).toEqual({ valid: true })
+    const badJson5 = parseJsonError('{ ok: }', 'json5')
+    expect(badJson5.valid).toBe(false)
+    expect(badJson5.line).toBeGreaterThanOrEqual(1)
+
     const emptyErr = parseJsonError('   ')
     expect(emptyErr.valid).toBe(false)
     expect(emptyErr.line).toBe(1)
@@ -104,10 +110,12 @@ describe('formats.ts', () => {
     const sortedDesc = sortJsonKeys('{"a":1,"z":2}', 'desc', '2')
     expect(Object.keys(JSON.parse(sortedDesc))).toEqual(['z', 'a'])
 
-    const raw = '{"msg":"hello\n\\"world\\""}'
+    const raw = '{"msg":"hello\n\\"world\\"","empty":""}'
     const escaped = escapeJsonString(raw)
     expect(unescapeJsonString(escaped)).toBe(raw)
     expect(unescapeJsonString(JSON.stringify(raw))).toBe(raw)
+    expect(unescapeJsonString('""')).toBe('')
+    expect(unescapeJsonString('a""b')).toBe('a""b')
 
     const repaired = repairJsonLocal("{name: 'FunJSON', items: [1, 2,],}")
     expect(repaired.changed).toBe(true)

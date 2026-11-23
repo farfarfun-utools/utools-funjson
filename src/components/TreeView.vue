@@ -122,6 +122,15 @@ function handleCopyValue(val: unknown) {
           :placeholder="settings.locale === 'en' ? 'Filter keys or values...' : '搜索键名或节点值...'"
           aria-label="Filter tree"
         />
+        <button
+          v-if="searchQuery"
+          type="button"
+          class="search-clear"
+          :aria-label="settings.locale === 'en' ? 'Clear search' : '清空搜索'"
+          @click="searchQuery = ''"
+        >
+          <AppIcon name="x" :size="12" />
+        </button>
       </div>
       <button type="button" class="ghost-btn xs" @click="expandAll">
         <AppIcon name="fold-down" :size="13" />
@@ -217,6 +226,21 @@ function handleCopyValue(val: unknown) {
   outline: none;
   background: transparent;
   font-size: 12px;
+}
+
+.search-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+}
+
+.search-clear:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .tree-count {

@@ -75,6 +75,39 @@ export function encodeText(input: string, kind: EncodingKind): string {
   }
 }
 
+function safeFromCodePoint(codePoint: number, fallback: string): string {
+  if (!Number.isInteger(codePoint) || codePoint < 0 || codePoint > 0x10ffff) {
+    return fallback
+  }
+  return String.fromCodePoint(codePoint)
+}
+
+function wrapUnquotedJsonString(input: string): string {
+  let out = '"'
+  let escaped = false
+  for (let i = 0; i < input.length; i += 1) {
+    const ch = input[i]
+    if (escaped) {
+      out += ch
+      escaped = false
+      continue
+    }
+    if (ch === '\\') {
+      out += ch
+      escaped = true
+      continue
+    }
+    if (ch === '"') out += '\\"'
+    else if (ch === '\n') out += '\\n'
+    else if (ch === '\r') out += '\\r'
+    else if (ch === '\t') out += '\\t'
+    else out += ch
+  }
+  if (escaped) out += '\\'
+  out += '"'
+  return out
+}
+
 export function decodeText(input: string, kind: EncodingKind): string {
   switch (kind) {
     case 'base64': {
@@ -85,19 +118,19 @@ export function decodeText(input: string, kind: EncodingKind): string {
       return decodeURIComponent(input.replace(/\+/g, ' '))
     case 'unicode':
       return input
-        .replace(/\\u\{([0-9a-fA-F]+)\}/g, (_, hex: string) =>
-          String.fromCodePoint(parseInt(hex, 16)),
+        .replace(/\\u\{([0-9a-fA-F]+)\}/g, (full, hex: string) =>
+          safeFromCodePoint(parseInt(hex, 16), full),
         )
         .replace(/\\u([0-9a-fA-F]{4})/g, (_, hex: string) =>
           String.fromCharCode(parseInt(hex, 16)),
         )
     case 'html':
       return input
-        .replace(/&#x([0-9a-fA-F]+);/gi, (_, hex: string) =>
-          String.fromCodePoint(parseInt(hex, 16)),
+        .replace(/&#x([0-9a-fA-F]+);/gi, (full, hex: string) =>
+          safeFromCodePoint(parseInt(hex, 16), full),
         )
-        .replace(/&#(\d+);/g, (_, dec: string) =>
-          String.fromCodePoint(parseInt(dec, 10)),
+        .replace(/&#(\d+);/g, (full, dec: string) =>
+          safeFromCodePoint(parseInt(dec, 10), full),
         )
         .replace(/&nbsp;/g, ' ')
         .replace(/&quot;/g, '"')
@@ -118,12 +151,15 @@ export function decodeText(input: string, kind: EncodingKind): string {
     }
     case 'json-string': {
       const trimmed = input.trim()
-      if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
-        const parsed = JSON.parse(trimmed)
-        if (typeof parsed === 'string') return parsed
+      if (trimmed.length >= 2 && trimmed.startsWith('"') && trimmed.endsWith('"')) {
+        try {
+          const parsed = JSON.parse(trimmed)
+          if (typeof parsed === 'string') return parsed
+        } catch {
+          // fall through to unquoted unescape
+        }
       }
-      const wrapped = `"${input.replace(/(^|[^\\])"/g, '$1\\"')}"`
-      return JSON.parse(wrapped) as string
+      return JSON.parse(wrapUnquotedJsonString(input)) as string
     }
   }
 }
@@ -273,13 +309,20 @@ export function inspectToken(raw: string, timeZone?: string): SmartInspection[] 
 
   // 3. Unicode escape sequences
   if (/\\u(?:[0-9a-fA-F]{4}|\{[0-9a-fA-F]+\})/.test(trimmed)) {
-    const decoded = decodeText(trimmed.startsWith('"') && trimmed.endsWith('"') ? trimmed.slice(1, -1) : trimmed, 'unicode')
-    if (decoded !== value && decoded !== trimmed) {
-      findings.push({
-        kind: 'unicode',
-        label: 'Unicode Decoded',
-        value: decoded,
-      })
+    try {
+      const decoded = decodeText(
+        trimmed.startsWith('"') && trimmed.endsWith('"') ? trimmed.slice(1, -1) : trimmed,
+        'unicode',
+      )
+      if (decoded !== value && decoded !== trimmed) {
+        findings.push({
+          kind: 'unicode',
+          label: 'Unicode Decoded',
+          value: decoded,
+        })
+      }
+    } catch {
+      // ignore invalid unicode escapes
     }
   }
 

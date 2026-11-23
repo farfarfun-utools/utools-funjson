@@ -435,7 +435,16 @@ void runRepair(false)
             data-testid="jsonpath-tool-output"
           />
           <div v-if="jpResult.paths.length > 0" class="paths-strip mono">
-            <span v-for="p in jpResult.paths.slice(0, 12)" :key="p" class="badge badge-neutral">{{ p }}</span>
+            <button
+              v-for="p in jpResult.paths.slice(0, 12)"
+              :key="p"
+              type="button"
+              class="badge badge-neutral path-copy-chip"
+              :title="settings.locale === 'en' ? 'Click to copy path' : '点击复制路径'"
+              @click="emit('copy', p)"
+            >
+              {{ p }}
+            </button>
           </div>
         </div>
       </div>
@@ -678,6 +687,17 @@ void runRepair(false)
   background: var(--bg-surface);
   max-height: 62px;
   overflow-y: auto;
+}
+
+.path-copy-chip {
+  cursor: pointer;
+  transition: border-color 120ms ease, color 120ms ease, background-color 120ms ease;
+}
+
+.path-copy-chip:hover {
+  border-color: var(--border-accent);
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 @media (max-width: 640px) {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import type { Locale } from '../lib/i18n'
 import {
   collectAllObjectKeys,
@@ -51,6 +51,26 @@ const localSortCol = ref<string | null>(null)
 const localSortDir = ref<'asc' | 'desc'>('asc')
 const localColFilters = reactive<Record<string, string[]>>({})
 const openFilterCol = ref<string | null>(null)
+
+function closeFilterPopover() {
+  if (openFilterCol.value !== null) {
+    openFilterCol.value = null
+  }
+}
+
+function handlePopoverEscape(event: KeyboardEvent) {
+  if (event.key === 'Escape') closeFilterPopover()
+}
+
+onMounted(() => {
+  window.addEventListener('click', closeFilterPopover)
+  window.addEventListener('keydown', handlePopoverEscape)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('click', closeFilterPopover)
+  window.removeEventListener('keydown', handlePopoverEscape)
+})
 
 const effectiveSortCol = computed(() =>
   props.sortCol !== undefined ? props.sortCol : localSortCol.value,
@@ -737,14 +757,14 @@ const arrayItems = computed(() => {
 }
 
 .kv-key-th {
-  width: 96px;
-  min-width: 84px;
+  width: 124px;
+  min-width: 108px;
 }
 
 .kv-key {
-  width: 96px;
-  min-width: 82px;
-  max-width: 150px;
+  width: 124px;
+  min-width: 108px;
+  max-width: 168px;
   background: var(--bg-surface);
   color: var(--text-primary);
   font-weight: 500;

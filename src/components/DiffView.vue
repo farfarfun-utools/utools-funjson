@@ -18,6 +18,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:left': [value: string]
   'update:right': [value: string]
+  copy: [text: string]
   notify: [payload: { message: string; kind?: 'info' | 'success' | 'error' }]
 }>()
 
@@ -80,6 +81,15 @@ function swapSides() {
       </button>
       <button type="button" class="ghost-btn xs" @click="emit('update:right', currentTabContent)">
         {{ settings.locale === 'en' ? 'Tab → Right' : '当前→右' }}
+      </button>
+      <button
+        type="button"
+        class="ghost-btn xs"
+        :disabled="!diffResult.unified"
+        @click="emit('copy', diffResult.unified)"
+      >
+        <AppIcon name="copy" :size="12" />
+        <span>{{ settings.locale === 'en' ? 'Copy Diff' : '复制差异' }}</span>
       </button>
 
       <div class="diff-stats">

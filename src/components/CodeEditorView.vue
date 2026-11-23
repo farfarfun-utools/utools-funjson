@@ -39,6 +39,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:modelValue': [value: string]
   'update:jsonPathOpen': [value: boolean]
+  snapshot: [label: string]
   'request-repair': []
   'open-new-tab': [payload: { content: string; format: DataFormat; title?: string }]
   copy: [text: string]
@@ -105,7 +106,7 @@ const isJsonLike = computed(() => getFormatMeta(props.format).isJsonLike)
 
 const jsonStatus = computed(() => {
   if (!isJsonLike.value) return null
-  return parseJsonError(props.modelValue)
+  return parseJsonError(props.modelValue, props.format)
 })
 
 const showContextBanner = computed(() => Boolean(jsonStatus.value && !jsonStatus.value.valid))
@@ -141,7 +142,15 @@ function extractTokenAroundCursor(state: EditorState): string {
     const start = m.index
     const end = start + m[0].length
     if (offset >= start && offset <= end) {
-      return m[0]
+      if (filterInspections(inspectToken(m[0], props.settings.timeZone)).length > 0) {
+        return m[0]
+      }
+      // If cursor is on a property key (followed by ':'), fall through to inspect its value
+      const after = text.slice(end).trimStart()
+      if (!after.startsWith(':')) {
+        return m[0]
+      }
+      break
     }
   }
 
@@ -189,6 +198,7 @@ function openJsonPathInNewTab() {
 
 function replaceWithJsonPath() {
   if (!jsonPathResult.value || jsonPathResult.value.error) return
+  emit('snapshot', 'JSONPath Replace')
   emit('update:modelValue', jsonPathResult.value.formatted)
   emit('notify', {
     message: props.settings.locale === 'en' ? 'Replaced document with query result' : '已用查询结果替换当前文档',

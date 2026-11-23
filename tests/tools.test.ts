@@ -56,6 +56,16 @@ describe('typegen.ts', () => {
     expect(schema.$schema).toContain('2020-12')
     expect(schema.properties.items.items.required).toContain('id')
     expect(schema.properties.items.items.required).not.toContain('tag')
+
+    // Deduplicates colliding field names across snake/camel normalization and escapes Go struct tags
+    const colliding = JSON.stringify({ user_id: 1, userId: 2, 'bad`key': 'ok' })
+    const goColliding = generateTypes(colliding, 'go', 'Payload')
+    expect(goColliding).toContain('UserId int64')
+    expect(goColliding).toContain('UserId2 int64')
+    expect(goColliding).not.toContain('json:"bad`key"')
+    const rustColliding = generateTypes(colliding, 'rust', 'Payload')
+    expect(rustColliding).toContain('pub user_id:')
+    expect(rustColliding).toContain('pub user_id2:')
   })
 })
 
@@ -110,6 +120,12 @@ describe('decoders.ts', () => {
     expect(inspectToken('hello%20FunJSON').some((i) => i.kind === 'url')).toBe(true)
     expect(inspectToken('\\u5de5\\u574a').some((i) => i.kind === 'unicode' && i.value === '工坊')).toBe(true)
     expect(inspectToken('"{\\"k\\":1}"').some((i) => i.kind === 'json-string')).toBe(true)
+
+    // Out-of-range Unicode / HTML code points should never throw
+    expect(decodeText('\\u{999999}', 'unicode')).toBe('\\u{999999}')
+    expect(decodeText('&#99999999;', 'html')).toBe('&#99999999;')
+    expect(() => inspectToken('\\u{999999}')).not.toThrow()
+    expect(decodeText('a""b', 'json-string')).toBe('a""b')
   })
 })
 

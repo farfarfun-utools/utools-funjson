@@ -223,6 +223,7 @@ function safeFieldName(
   rawKey: string,
   style: 'camel' | 'pascal' | 'snake',
   lang: Exclude<TargetLanguage, 'jsonschema'>,
+  usedNames?: Set<string>,
 ): string {
   const cleaned = rawKey.replace(/[^A-Za-z0-9_\-\s.]/g, ' ').trim()
   let candidate = convertKeyName(cleaned || 'field', style).replace(/[^A-Za-z0-9_]/g, '')
@@ -230,13 +231,33 @@ function safeFieldName(
   if (/^\d/.test(candidate)) {
     candidate = style === 'pascal' ? `Field${candidate}` : `field_${candidate}`
   }
-  if (RESERVED_KEYWORDS[lang].has(candidate)) {
-    if (lang === 'rust') return `r#${candidate}`
-    if (lang === 'kotlin' || lang === 'swift') return `\`${candidate}\``
-    if (lang === 'csharp') return `@${candidate}`
-    return `${candidate}_`
+
+  const wrapKeyword = (name: string): string => {
+    if (!RESERVED_KEYWORDS[lang].has(name)) return name
+    if (lang === 'rust') return `r#${name}`
+    if (lang === 'kotlin' || lang === 'swift') return `\`${name}\``
+    if (lang === 'csharp') return `@${name}`
+    return `${name}_`
   }
-  return candidate
+
+  if (!usedNames) {
+    return wrapKeyword(candidate)
+  }
+
+  let base = candidate
+  let finalName = wrapKeyword(base)
+  let suffix = 2
+  while (usedNames.has(finalName)) {
+    base = `${candidate}${suffix}`
+    finalName = wrapKeyword(base)
+    suffix += 1
+  }
+  usedNames.add(finalName)
+  return finalName
+}
+
+function escapeGoTagKey(key: string): string {
+  return key.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/`/g, "'")
 }
 
 interface CollectedStruct {
@@ -360,11 +381,13 @@ function renderGo(rootIr: IrType, rootName: string): string {
     blocks.push(`type ${sanitizeTypeName(rootName)} = ${renderType(rootIr, false)}`)
   }
   for (const st of structs) {
+    const usedFields = new Set<string>()
     const lines = [`type ${st.name} struct {`]
     for (const f of st.fields) {
-      const goField = safeFieldName(f.key, 'pascal', 'go')
+      const goField = safeFieldName(f.key, 'pascal', 'go', usedFields)
       const goType = renderType(f.type, f.optional)
-      const tag = f.optional ? `${f.key},omitempty` : f.key
+      const escapedKey = escapeGoTagKey(f.key)
+      const tag = f.optional ? `${escapedKey},omitempty` : escapedKey
       lines.push(`\t${goField} ${goType} \`json:"${tag}"\``)
     }
     lines.push('}')
@@ -406,9 +429,10 @@ function renderJava(rootIr: IrType, rootName: string): string {
     blocks.push(`public class ${cls} {\n    private ${renderType(rootIr, true)} value;\n}`)
   }
   for (const st of structs) {
+    const usedFields = new Set<string>()
     const lines = [`public class ${st.name} {`]
     for (const f of st.fields) {
-      const fieldName = safeFieldName(f.key, 'camel', 'java')
+      const fieldName = safeFieldName(f.key, 'camel', 'java', usedFields)
       const fieldType = renderType(f.type, f.optional)
       if (fieldName !== f.key) {
         lines.push(`    @JsonProperty(${JSON.stringify(f.key)})`)
@@ -452,9 +476,10 @@ function renderRust(rootIr: IrType, rootName: string): string {
     blocks.push(`pub type ${sanitizeTypeName(rootName)} = ${renderType(rootIr, false)};`)
   }
   for (const st of structs) {
+    const usedFields = new Set<string>()
     const lines = ['#[derive(Debug, Clone, Serialize, Deserialize)]', `pub struct ${st.name} {`]
     for (const f of st.fields) {
-      const rustField = safeFieldName(f.key, 'snake', 'rust')
+      const rustField = safeFieldName(f.key, 'snake', 'rust', usedFields)
       const cleanName = rustField.replace(/^r#/, '')
       if (cleanName !== f.key) {
         lines.push(`    #[serde(rename = ${JSON.stringify(f.key)})]`)
@@ -508,14 +533,15 @@ function renderPython(rootIr: IrType, rootName: string): string {
       lines.push('    pass')
     } else {
       // Required fields first in Python dataclass, optional fields with default None after
+      const usedFields = new Set<string>()
       const required = st.fields.filter((f) => !f.optional)
       const optional = st.fields.filter((f) => f.optional)
       for (const f of required) {
-        const pyField = safeFieldName(f.key, 'snake', 'python')
+        const pyField = safeFieldName(f.key, 'snake', 'python', usedFields)
         lines.push(`    ${pyField}: ${renderType(f.type, false)}`)
       }
       for (const f of optional) {
-        const pyField = safeFieldName(f.key, 'snake', 'python')
+        const pyField = safeFieldName(f.key, 'snake', 'python', usedFields)
         lines.push(`    ${pyField}: ${renderType(f.type, true)} = None`)
       }
     }
@@ -559,9 +585,10 @@ function renderKotlin(rootIr: IrType, rootName: string): string {
       blocks.push(`@Serializable\nclass ${st.name}`)
       continue
     }
+    const usedFields = new Set<string>()
     const lines = ['@Serializable', `data class ${st.name}(`]
     st.fields.forEach((f, idx) => {
-      const ktField = safeFieldName(f.key, 'camel', 'kotlin')
+      const ktField = safeFieldName(f.key, 'camel', 'kotlin', usedFields)
       const cleanName = ktField.replace(/`/g, '')
       const comma = idx < st.fields.length - 1 ? ',' : ''
       const defaultVal = f.optional ? ' = null' : ''
@@ -607,11 +634,12 @@ function renderSwift(rootIr: IrType, rootName: string): string {
     blocks.push(`typealias ${sanitizeTypeName(rootName)} = ${renderType(rootIr, false)}`)
   }
   for (const st of structs) {
+    const usedFields = new Set<string>()
     const lines = [`struct ${st.name}: Codable {`]
     const mappedKeys: Array<{ prop: string; raw: string }> = []
     let needsCodingKeys = false
     for (const f of st.fields) {
-      const prop = safeFieldName(f.key, 'camel', 'swift')
+      const prop = safeFieldName(f.key, 'camel', 'swift', usedFields)
       const cleanName = prop.replace(/`/g, '')
       if (cleanName !== f.key) needsCodingKeys = true
       mappedKeys.push({ prop, raw: f.key })
@@ -669,9 +697,10 @@ function renderCSharp(rootIr: IrType, rootName: string): string {
     blocks.push(`public class ${sanitizeTypeName(rootName)}\n{\n    public ${renderType(rootIr, false)} Value { get; set; }\n}`)
   }
   for (const st of structs) {
+    const usedFields = new Set<string>()
     const lines = [`public class ${st.name}`, '{']
     for (const f of st.fields) {
-      const prop = safeFieldName(f.key, 'pascal', 'csharp')
+      const prop = safeFieldName(f.key, 'pascal', 'csharp', usedFields)
       lines.push(`    [JsonPropertyName(${JSON.stringify(f.key)})]`)
       lines.push(`    public ${renderType(f.type, f.optional)} ${prop} { get; set; }`)
     }
