@@ -136,7 +136,6 @@ try {
   await capture('toolbox')
 
   // 5. Dark mode Code view with JSONPath bar open
-  await click('[data-testid="ws-workbench-btn"]')
   await click('[data-testid="view-code"]')
   await session.waitForExpression('document.querySelector("[data-testid=jsonpath-drawer]") !== null')
   // Cycle theme: system -> light -> dark

@@ -467,17 +467,13 @@ function toggleLocale() {
   workspace.value.settings.locale = workspace.value.settings.locale === 'zh-CN' ? 'en' : 'zh-CN'
 }
 
-function selectWorkbench() {
-  mobileNavOpen.value = false
-  workspace.value.activeTool = null
-}
-
 function selectTool(id: ToolId) {
   mobileNavOpen.value = false
   workspace.value.activeTool = id
 }
 
 function setViewMode(mode: ViewMode) {
+  mobileNavOpen.value = false
   workspace.value.activeTool = null
   workspace.value.viewMode = mode
 }
@@ -648,20 +644,22 @@ onBeforeUnmount(() => {
         </div>
 
         <button
+          v-for="tab in VIEW_TABS"
+          :key="tab.id"
           type="button"
           class="nav-link"
-          :class="{ active: !inToolbox }"
-          data-testid="ws-workbench-btn"
-          :title="locale === 'en' ? 'Workbench' : '工作台'"
-          @click="selectWorkbench"
+          :class="{ active: !inToolbox && workspace.viewMode === tab.id }"
+          :data-testid="`view-${tab.id}`"
+          :title="t(locale, `nav.${tab.id}`)"
+          @click="setViewMode(tab.id)"
         >
           <span class="nav-icon">
-            <AppIcon name="braces" :size="15" />
+            <AppIcon :name="tab.icon" :size="14" />
           </span>
           <span v-show="!sidebarCollapsed" class="nav-label">
-            {{ locale === 'en' ? 'Workbench' : '工作台' }}
+            {{ t(locale, `nav.${tab.id}`) }}
           </span>
-          <span v-show="!sidebarCollapsed && !inToolbox" class="nav-active-dot" />
+          <span v-show="!sidebarCollapsed && !inToolbox && workspace.viewMode === tab.id" class="nav-active-dot" />
         </button>
 
         <div class="nav-divider" />
@@ -842,21 +840,6 @@ onBeforeUnmount(() => {
 
       <!-- Document Action Bar (Workbench only) -->
       <div v-if="!inToolbox" class="action-bar">
-        <div class="seg-control view-switch" role="tablist">
-          <button
-            v-for="tab in VIEW_TABS"
-            :key="tab.id"
-            type="button"
-            class="seg-btn"
-            :class="{ active: workspace.viewMode === tab.id }"
-            :data-testid="`view-${tab.id}`"
-            @click="setViewMode(tab.id)"
-          >
-            <AppIcon :name="tab.icon" :size="13" />
-            <span>{{ t(locale, `nav.${tab.id}`) }}</span>
-          </button>
-        </div>
-
         <div class="action-buttons">
           <button
             type="button"
@@ -890,57 +873,60 @@ onBeforeUnmount(() => {
             <span>{{ locale === 'en' ? 'Repair' : '修复' }}</span>
           </button>
 
-          <span class="toolbar-sep" />
+          <span v-if="isJsonLike" class="toolbar-sep" />
 
           <button
             v-if="isJsonLike"
             type="button"
-            class="ghost-btn icon-only"
+            class="ghost-btn xs"
             data-testid="btn-sort"
             :title="sortOrder === 'asc' ? t(locale, 'action.sortAsc') : t(locale, 'action.sortDesc')"
-            :aria-label="sortOrder === 'asc' ? t(locale, 'action.sortAsc') : t(locale, 'action.sortDesc')"
             @click="handleSortKeys"
           >
-            <AppIcon name="arrow-up-down" :size="14" />
+            <AppIcon name="arrow-up-down" :size="13" />
+            <span>{{ sortOrder === 'asc' ? t(locale, 'action.sortAsc') : t(locale, 'action.sortDesc') }}</span>
           </button>
           <button
             v-if="isJsonLike"
             type="button"
-            class="ghost-btn icon-only"
+            class="ghost-btn xs"
             :class="{ active: escapedState }"
             data-testid="btn-escape"
             :title="escapedState ? t(locale, 'action.unescape') : t(locale, 'action.escape')"
-            :aria-label="escapedState ? t(locale, 'action.unescape') : t(locale, 'action.escape')"
             @click="handleToggleEscape"
           >
-            <AppIcon name="quote" :size="14" />
+            <AppIcon name="quote" :size="13" />
+            <span>{{ escapedState ? t(locale, 'action.unescape') : t(locale, 'action.escape') }}</span>
           </button>
+        </div>
+
+        <div class="action-buttons">
           <button
             type="button"
-            class="ghost-btn icon-only"
+            class="ghost-btn xs"
             :title="t(locale, 'action.open')"
-            :aria-label="t(locale, 'action.open')"
             @click="handleOpenFile"
           >
-            <AppIcon name="upload" :size="14" />
+            <AppIcon name="upload" :size="13" />
+            <span>{{ locale === 'en' ? 'Open' : '打开' }}</span>
           </button>
           <button
             type="button"
-            class="ghost-btn icon-only"
+            class="ghost-btn xs"
             :title="t(locale, 'action.save')"
-            :aria-label="t(locale, 'action.save')"
             @click="handleExportFile()"
           >
-            <AppIcon name="download" :size="14" />
+            <AppIcon name="download" :size="13" />
+            <span>{{ locale === 'en' ? 'Export' : '导出' }}</span>
           </button>
           <button
             type="button"
-            class="ghost-btn icon-only"
+            class="ghost-btn xs"
             :title="t(locale, 'action.copy')"
-            :aria-label="t(locale, 'action.copy')"
             @click="handleCopy(activeTab.content)"
           >
-            <AppIcon name="copy" :size="14" />
+            <AppIcon name="copy" :size="13" />
+            <span>{{ t(locale, 'action.copy') }}</span>
           </button>
         </div>
       </div>
@@ -1230,10 +1216,10 @@ onBeforeUnmount(() => {
 
 .nav-body {
   flex: 1;
-  padding: 12px 8px;
+  padding: 10px 8px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
   overflow-y: auto;
 }
 
@@ -1268,7 +1254,7 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 9px;
   width: 100%;
-  height: 36px;
+  height: 33px;
   padding: 0 8px;
   border-radius: 8px;
   color: var(--text-secondary);
@@ -1278,8 +1264,8 @@ onBeforeUnmount(() => {
 }
 
 .workbench-nav.collapsed .nav-link {
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   justify-content: center;
 }

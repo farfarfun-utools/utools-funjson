@@ -85,7 +85,8 @@ describe('App.vue workbench integration', () => {
   it('expands all 4 JSON tools directly in the workspace sidebar and executes them (repair, types, jsonpath, naming)', async () => {
     const wrapper = mount(App)
 
-    // All 4 tools are directly accessible in the primary sidebar without a nested toolbox layer
+    // All 5 views and 4 tools are directly accessible in the primary sidebar without nested wrappers
+    expect(wrapper.find('[data-testid="ws-workbench-btn"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="ws-toolbox-btn"]').exists()).toBe(false)
 
     // Types tool
@@ -115,8 +116,8 @@ describe('App.vue workbench integration', () => {
     expect(namingOut).toContain('"firstName"')
     expect(namingOut).toContain('"keep_raw"')
 
-    // Switch back to Workbench directly
-    await wrapper.get('[data-testid="ws-workbench-btn"]').trigger('click')
+    // Switch back to Code view directly from the sidebar
+    await wrapper.get('[data-testid="view-code"]').trigger('click')
     expect(wrapper.find('[data-testid="toolbox-view"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="code-editor-host"]').exists()).toBe(true)
 
